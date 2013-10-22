@@ -1,0 +1,60 @@
+#!/bin/bash
+#
+# //podcatcher//
+# A podcather for my podcasts, written in bash and forked from bashpodder
+#
+# Copyright (C) 2013 David N. Robinson
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# the list of xml podcast files to download
+podcast_list=podcast.list
+
+if [ ! -e $podcast_list ]; then
+    echo "Please create a \'podcast.list\' file"
+else
+    while read podcast
+    do
+        podcast_file="podcast.xml"
+        wget -q -O $podcast_file $podcast
+
+        podcast_name=$(xsltproc parse_title.xsl $podcast_file)
+        echo "Updating "$podcast_name
+        podcast_name=${podcast_name// /_}
+        log=$podcast_name".log"
+
+        if [ ! -d $podcast_name ]; then
+            mkdir $podcast_name
+        fi
+        cd $podcast_name
+
+        if [ ! -e $log ]; then
+            touch $log
+        fi
+
+        file=$(xsltproc ../parse_enclosure.xsl ../$podcast_file)
+
+        for url in $file
+        do
+            if ! grep "$url" $log > /dev/null;  then
+                echo "Downloading "${url##*/}
+                wget -q $url
+                echo $url >> $log
+            fi
+        done
+
+        cd ..
+        rm $podcast_file
+    done < $podcast_list
+    echo "Finished sycing your podcasts"
+fi
