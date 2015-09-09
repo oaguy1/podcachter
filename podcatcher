@@ -21,43 +21,44 @@
 podcast_list=podcast.list
 
 if [ ! -e $podcast_list ]; then
-    echo "Please create a \'podcast.list\' file"
+  echo "Please create a \'podcast.list\' file"
 else
-    while read podcast
+  while read podcast
+  do
+    podcast_file_dirty="podcast.xml"
+    podcast_file_cleaned="podcast_cleaned.xml"
+    wget -q -O $podcast_file_dirty $podcast
+    tr -d '\r' < $podcast_file_dirty > $podcast_file_cleaned
+    rm $podcast_file_dirty
+
+    podcast_name=$(xsltproc parse_title.xsl $podcast_file_cleaned)
+    echo "Updating "$podcast_name
+    podcast_name=${podcast_name// /_}
+    log=$podcast_name".log"
+
+    if [ ! -d $podcast_name ]; then
+      mkdir $podcast_name
+    fi
+    cd $podcast_name
+
+    if [ ! -e $log ]; then
+      touch $log
+    fi
+
+    file=$(xsltproc ../parse_enclosure.xsl ../$podcast_file_cleaned)
+
+    for url in $file
     do
-        podcast_file_dirty="podcast.xml"
-        podcast_file_cleaned="podcast_cleaned.xml"
-        wget -q -O $podcast_file_dirty $podcast
-        tr -d '\r' < $podcast_file_dirty > $podcast_file_cleaned
-        rm $podcast_file_dirty
+      if ! grep "$url" $log > /dev/null;  then
+        url_rel=${url##*/}
+        echo "Downloading "${url_rel%%\?*}
+        wget -q $url -O ${url_rel%%\?*}
+        echo $url >> $log
+      fi
+    done
 
-        podcast_name=$(xsltproc parse_title.xsl $podcast_file_cleaned)
-        echo "Updating "$podcast_name
-        podcast_name=${podcast_name// /_}
-        log=$podcast_name".log"
-
-        if [ ! -d $podcast_name ]; then
-            mkdir $podcast_name
-        fi
-        cd $podcast_name
-
-        if [ ! -e $log ]; then
-            touch $log
-        fi
-
-        file=$(xsltproc ../parse_enclosure.xsl ../$podcast_file_cleaned)
-
-        for url in $file
-        do
-            if ! grep "$url" $log > /dev/null;  then
-                echo "Downloading "${url##*/}
-                wget -q $url
-                echo $url >> $log
-            fi
-        done
-
-        cd ..
-        rm $podcast_file_cleaned
-    done < $podcast_list
-    echo "Finished sycing your podcasts"
+    cd ..
+    rm $podcast_file_cleaned
+  done < $podcast_list
+  echo "Finished sycing your podcasts"
 fi
