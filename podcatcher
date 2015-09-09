@@ -3,7 +3,7 @@
 # //podcatcher//
 # A podcather for my podcasts, written in bash and forked from bashpodder
 #
-# Copyright (C) 2013 David N. Robinson
+# Copyright (C) 2015 MountainPass Tech
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,10 +25,13 @@ if [ ! -e $podcast_list ]; then
 else
     while read podcast
     do
-        podcast_file="podcast.xml"
-        wget -q -O $podcast_file $podcast
+        podcast_file_dirty="podcast.xml"
+        podcast_file_cleaned="podcast_cleaned.xml"
+        wget -q -O $podcast_file_dirty $podcast
+        tr -d '\r' < $podcast_file_dirty > $podcast_file_cleaned
+        rm $podcast_file_dirty
 
-        podcast_name=$(xsltproc parse_title.xsl $podcast_file)
+        podcast_name=$(xsltproc parse_title.xsl $podcast_file_cleaned)
         echo "Updating "$podcast_name
         podcast_name=${podcast_name// /_}
         log=$podcast_name".log"
@@ -42,7 +45,7 @@ else
             touch $log
         fi
 
-        file=$(xsltproc ../parse_enclosure.xsl ../$podcast_file)
+        file=$(xsltproc ../parse_enclosure.xsl ../$podcast_file_cleaned)
 
         for url in $file
         do
@@ -54,7 +57,7 @@ else
         done
 
         cd ..
-        rm $podcast_file
+        rm $podcast_file_cleaned
     done < $podcast_list
     echo "Finished sycing your podcasts"
 fi
